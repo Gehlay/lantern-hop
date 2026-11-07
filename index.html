@@ -318,8 +318,8 @@ function setLand(on){
  land=on;wrap.classList.toggle('land',on);document.body.classList.toggle('landing',on);
  lb.textContent=on?'Exit landscape':'Landscape';
  if(on){
-  var rq=wrap.requestFullscreen||wrap.webkitRequestFullscreen;
-  if(rq){try{var p=rq.call(wrap);if(p&&p.then)p.then(function(){realFS=true;lockLand();}).catch(function(){});else{realFS=true;lockLand();}}catch(e){}}
+  var de=document.documentElement,rq=de.requestFullscreen||de.webkitRequestFullscreen;
+  if(rq){try{var p=rq.call(de);if(p&&p.then)p.then(function(){realFS=true;lockLand();}).catch(function(){});else{realFS=true;lockLand();}}catch(e){}}
   window.scrollTo(0,0);
  }else{
   if(isFS()){try{(document.exitFullscreen||document.webkitExitFullscreen).call(document);}catch(e){}}
