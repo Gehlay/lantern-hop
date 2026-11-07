@@ -29,15 +29,25 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 #touch{display:none;justify-content:space-between;margin-top:12px;gap:10px}
 #touch div{display:flex;gap:10px}
 #touch button{width:76px;height:64px;font-size:1.5rem;padding:0;background:var(--panel);color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none}
+.tools{display:flex;gap:8px}
+.tools button{padding:8px 14px;background:var(--panel);color:var(--ink);font-weight:500;font-size:.9rem}
+#toast{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(28,22,40,.85);color:#fff;padding:8px 14px;border-radius:8px;font-size:.9rem;text-align:center;display:none;max-width:90%}
+.wrap:fullscreen{max-width:none;box-sizing:border-box;padding:8px;background:var(--bg);position:relative}
+.wrap:fullscreen h1,.wrap:fullscreen .help{display:none}
+.wrap:fullscreen .stage{aspect-ratio:auto;height:calc(100vh - 60px);border-radius:10px}
+.wrap:fullscreen canvas{object-fit:contain}
+.wrap:fullscreen #touch{position:absolute;left:16px;right:16px;bottom:16px;margin:0;pointer-events:none}
+.wrap:fullscreen #touch button{pointer-events:auto;opacity:.6}
 @media (hover:none){#touch{display:flex}.help{display:none}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header><h1>Lantern Hop</h1>
-<div id="hud"><span>Level <b id="hl">1</b>/3</span><span>Lanterns <b id="hc">0</b></span><span>Falls <b id="hd">0</b></span></div></header>
+<div id="hud"><span>Level <b id="hl">1</b>/3</span><span>Lanterns <b id="hc">0</b></span><span>Falls <b id="hd">0</b></span></div>
+<div class="tools"><button id="sb" type="button">Sound: on</button><button id="lb" type="button">Landscape</button></div></header>
 <div class="stage"><canvas id="c" width="640" height="384"></canvas>
-<div id="overlay"><h2 id="ot">Lantern Hop</h2><p id="op">Collect the lanterns and reach the flag. Stomp the moths, dodge the spikes.</p><button id="ob">Start</button></div></div>
+<div id="overlay"><h2 id="ot">Lantern Hop</h2><p id="op">Collect the lanterns and reach the flag. Stomp the moths, dodge the spikes.</p><button id="ob">Start</button></div><div id="toast"></div></div>
 <p class="help">Move: arrow keys or A / D. Jump: Space, W or Up (hold for a higher jump). Press jump again in mid-air to double jump. Restart level: R.</p>
 <div id="touch"><div><button id="bl" aria-label="Left">◀</button><button id="br" aria-label="Right">▶</button></div><button id="bj" aria-label="Jump">▲</button></div>
 </div>
@@ -69,7 +79,7 @@ function build(i){
 }
 function respawn(){P.x=start[0]*T+6;P.y=(start[1]+1)*T-P.h;P.vx=P.vy=0;P.on=false;flash=40;}
 function solid(tx,ty){if(tx<0||tx>=W)return true;if(ty<0||ty>=ROWS)return false;return grid[ty][tx]===1;}
-function die(){deaths++;respawn();document.getElementById('hd').textContent=deaths;}
+function die(){SFX.die();deaths++;respawn();document.getElementById('hd').textContent=deaths;}
 
 function moveX(){
  P.x+=P.vx;var y0=Math.floor(P.y/T),y1=Math.floor((P.y+P.h-1)/T),ty,tx;
@@ -92,21 +102,21 @@ function update(){
  if(keys.jp){P.buf=7;keys.jp=false;}
  if(P.buf>0)P.buf--;
  if(P.on){P.coy=6;P.dj=1;}else if(P.coy>0)P.coy--;
- if(P.buf>0&&P.coy>0){P.vy=-11.2;P.buf=0;P.coy=0;P.on=false;}
- else if(P.buf>0&&P.dj>0&&!P.on){P.vy=-10;P.buf=0;P.dj=0;puff={x:P.x+P.w/2,y:P.y+P.h,t:18};}
+ if(P.buf>0&&P.coy>0){P.vy=-11.2;P.buf=0;P.coy=0;P.on=false;SFX.jump();}
+ else if(P.buf>0&&P.dj>0&&!P.on){P.vy=-10;P.buf=0;P.dj=0;SFX.dj();puff={x:P.x+P.w/2,y:P.y+P.h,t:18};}
  if(!keys.j&&P.vy<-3)P.vy*=0.84;
  P.vy=Math.min(12,P.vy+0.55);
  moveX();moveY();
  if(P.y>ROWS*T+60){die();return;}
  var pc={x:P.x+3,y:P.y+3,w:P.w-6,h:P.h-3};
- coins.forEach(function(c){if(!c.got&&hit(pc,{x:c.x*T+8,y:c.y*T+6,w:16,h:20})){c.got=true;total++;document.getElementById('hc').textContent=total;}});
+ coins.forEach(function(c){if(!c.got&&hit(pc,{x:c.x*T+8,y:c.y*T+6,w:16,h:20})){c.got=true;total++;SFX.coin();document.getElementById('hc').textContent=total;}});
  for(var i=0;i<spikes.length;i++){if(hit(pc,{x:spikes[i]*T+5,y:9*T+16,w:22,h:16})){die();return;}}
  for(var k=0;k<enemies.length;k++){
   var e=enemies[k];if(!e.alive)continue;
   var nx=e.x+e.d*0.9,fx=e.d>0?nx+e.w:nx,tx=Math.floor(fx/T),ty=Math.floor((e.y+e.h-1)/T);
   if(solid(tx,ty)||!solid(tx,ty+1))e.d*=-1;else e.x=nx;
   if(hit(pc,e)){
-   if(P.vy>0&&(P.y+P.h)-e.y<18){e.alive=false;P.vy=-8;}
+   if(P.vy>0&&(P.y+P.h)-e.y<18){e.alive=false;P.vy=-8;SFX.stomp();}
    else{die();return;}
   }
  }
@@ -114,7 +124,7 @@ function update(){
  cam+=((P.x+P.w/2-VW/2)-cam)*0.12;cam=Math.max(0,Math.min(W*T-VW,cam));
 }
 
-function win(){
+function win(){SFX.win();
  if(lvl<LV.length-1){state='done';show('Level '+(lvl+1)+' clear','Lanterns so far: '+total+'. Falls: '+deaths+'.','Next level');}
  else{state='end';show('You made it home','You collected '+total+' lanterns with '+deaths+' falls.','Play again');}
 }
@@ -126,7 +136,7 @@ function go(){
  else if(state==='end'){lvl=0;total=0;deaths=0;}
  document.getElementById('hl').textContent=lvl+1;
  document.getElementById('hc').textContent=total;document.getElementById('hd').textContent=deaths;
- build(lvl);cam=0;state='play';ov.classList.add('hide');
+ ac();build(lvl);cam=0;state='play';ov.classList.add('hide');
 }
 ob.addEventListener('click',go);
 
@@ -178,6 +188,26 @@ function draw(){
  cx.restore();
 }
 
+var AC=null,muted=false;
+function ac(){if(!AC){var C=window.AudioContext||window.webkitAudioContext;if(C){try{AC=new C();}catch(e){}}}if(AC&&AC.state==='suspended')AC.resume();return AC;}
+function tone(f0,f1,d,type,vol){if(muted)return;var a=ac();if(!a)return;var o=a.createOscillator(),g=a.createGain(),n=a.currentTime;o.type=type||'square';o.frequency.setValueAtTime(f0,n);o.frequency.exponentialRampToValueAtTime(f1,n+d);g.gain.setValueAtTime(vol||0.07,n);g.gain.exponentialRampToValueAtTime(0.0001,n+d);o.connect(g);g.connect(a.destination);o.start(n);o.stop(n+d);}
+var SFX={jump:function(){tone(300,620,.14);},dj:function(){tone(450,900,.16,'triangle',.12);},
+coin:function(){tone(880,1320,.1,'sine',.12);setTimeout(function(){tone(1320,1760,.12,'sine',.1);},70);},
+stomp:function(){tone(220,80,.15,'sawtooth',.1);},die:function(){tone(400,60,.4,'sawtooth',.1);},
+win:function(){[523,659,784,1047].forEach(function(f,i){setTimeout(function(){tone(f,f*1.01,.22,'triangle',.12);},i*120);});}};
+var mel=[262,330,392,330,294,370,440,370,262,330,392,523,440,392,330,294],mi=0;
+setInterval(function(){if(state==='play'&&!muted){tone(mel[mi%mel.length],mel[mi%mel.length]*1.003,.35,'triangle',.035);if(mi%4===0)tone(mel[mi%mel.length]/2,mel[mi%mel.length]/2*1.003,.5,'sine',.05);mi++;}},320);
+var sb=document.getElementById('sb'),lb=document.getElementById('lb'),wrap=document.querySelector('.wrap'),tt=document.getElementById('toast'),tmr;
+function toast(m){tt.textContent=m;tt.style.display='block';clearTimeout(tmr);tmr=setTimeout(function(){tt.style.display='none';},3500);}
+sb.addEventListener('click',function(){muted=!muted;sb.textContent='Sound: '+(muted?'off':'on');if(!muted){ac();SFX.coin();}});
+lb.addEventListener('click',function(){
+ if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document);return;}
+ var rq=wrap.requestFullscreen||wrap.webkitRequestFullscreen,touch=window.matchMedia('(hover:none)').matches;
+ if(!rq){toast('Turn your phone sideways to play in landscape.');return;}
+ function lock(){try{if(screen.orientation&&screen.orientation.lock){screen.orientation.lock('landscape').catch(function(){if(touch)toast('Turn your phone sideways to play in landscape.');});}}catch(e){}}
+ try{var p=rq.call(wrap);if(p&&p.then)p.then(lock).catch(function(){toast('Full screen is blocked here. Turn your phone sideways instead.');});else lock();}catch(e){toast('Turn your phone sideways to play in landscape.');}
+});
+document.addEventListener('fullscreenchange',function(){var on=!!document.fullscreenElement;lb.textContent=on?'Exit full screen':'Landscape';if(!on){try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock();}catch(e){}}});
 function loop(){if(state==='play')update();if(grid)draw();requestAnimationFrame(loop);}
 function kd(e,v){
  var k=e.key.toLowerCase();
